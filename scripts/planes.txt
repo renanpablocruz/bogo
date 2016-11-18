@@ -1,0 +1,22 @@
+# title and number of planes
+Stone colour			3		0	2
+Ones					1		3
+Turns since				8		4	11
+Liberties				8		12	19
+Capture size			8		20	27
+Self-atari size			8		28	35
+Liberties after move	8		36	43		# NOTE: what is this?
+Ladder Capture			1		44
+Ladder escape			1		45
+Sensibleness			1		46
+Zeros					1		47
+
+# current implementation
+Stone colour            3       0   2
+Ones                    1       3
+Turns since             8       4   11
+Liberties               8       12  19
+Capture size            8       20  27
+Self-atari size         8       28  35
+Liberties after move    8       36  43      # NOTE: what is this?
+Zeros                   1       44

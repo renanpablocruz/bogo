@@ -1,0 +1,18 @@
+Introducao
+
+Metodologia?
+Deep Convolutional Neural Networks
+Monte Carlo Tree Search
+
+Tecnologias utilizadas
+Theano
+Lasagne
+
+Resultados
+MSE - train vs validation
+
+Conclusao e trabalhos futuros
+
+Anexos
+
+Apendice

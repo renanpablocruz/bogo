@@ -1,0 +1,7 @@
+*.sgf
+*.csv
+*.data
+papers/*
+env/*
+tutorial_files/*
+*~
