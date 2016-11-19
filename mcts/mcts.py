@@ -196,8 +196,10 @@ class GameState:
 
 
     def process_move(self, move):
-        if move == 'pass':
+        if move == (-1, -1): # pass move
             self.set_current_player_passed(True)
+            self.prev_board = np.copy(self.board) # NOTE can I not repeat this code
+            self.current_player = -self.current_player
             return True
         elif move == 'resign':
             return True # TODO is this really necessary?
@@ -209,10 +211,10 @@ class GameState:
             raise Exception('This is not a legal move.', move)
             return False
         self.prev_board = np.copy(self.board)
+        self.current_player = -self.current_player
         self.board[x][y] = self.current_player
         self.process_captures_from_last_move(x, y)
         self.update_liberties()
-        self.current_player = -self.current_player
         self.untried_moves = self.all_possible_moves()
         # NOTE check if the game ended?
         # TODO how to do it? probably when get_move returns 'pass' twice!
@@ -263,6 +265,16 @@ class GameState:
                 else:
                     raise Exception('not a valid number for stone', player)
             print ''
+
+    def get_winner(self): # NOTE only makes sense to call it when game_ended == True
+        # BIG TODO how to include the dead stones on the board?
+        if self.black_captures > self.white_captures:
+            return 1
+        elif self.black_captures < self.white_captures:
+            return -1
+        else:
+            return 0
+
 class Node:
     def __init__(self, state = GameState(n = 19), origin_move = None, children = None, wins = 0, draws = 0, visits = 0):
         self.state = state
@@ -289,7 +301,7 @@ class Node:
 
     def get_move(self):
         if len(self.untried_moves) == 0:
-            return 'pass'
+            return (-1, -1) # pass move
         else:
             move = self.untried_moves.pop()
             return move # TODO fix this. this sorts and gets the smallest
@@ -317,6 +329,15 @@ class Node:
 
     def print_board(self):
         return self.state.print_board()
+
+    def update_statistics(self, winner):
+        if winner == self.current_player:
+            self.wins += 1
+        elif winner == 0:
+            self.draws += 1
+
+    def count_visit(self):
+        self.visits += 1
 
 class MCTSPlayer:
     def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct', root = None):
@@ -375,14 +396,16 @@ class MCTSPlayer:
             while not node.game_ended():
                 num_steps += 1
                 print 'step', num_steps
+                node.count_visit()
                 node.do_random_move()
             # Backpropagation
             debug('Backpropagation')
+            winner = node.get_winner()
             while current != None:
-                current.update_statistics()
+                current.update_statistics(winner)
                 current = current.parent
 
-        return self.get_best_node()
+        return self.get_best_node().origin_move
 
     def policy_network(self):
         pass
