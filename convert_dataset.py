@@ -281,7 +281,7 @@ class StatePlanes:
                 self.compute_num_of_liberties(x, y + 1, stones, liberties)
         return len(liberties)
 
-    def update_liberty_planes(self):
+    def update_liberty_planes(self): # TODO review how 'stones' is been passed as a parameter
         stones = set()
         for i in range(self.n):
             for j in range(self.n):

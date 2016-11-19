@@ -1,15 +1,12 @@
 import numpy as np
+from utils import debug
 
-# constants
-
+# TODO: incorporate class
+# class Board:
+#     def __init__(self, size = 19):
+#         self.board = np.zeros((size, size), dtype = np.int)
 
 # classes
-
-class Board:
-    def __init__(self, size = 19):
-        self.board = np.zeros((size, size))
-
-
 class GameState:
     def __init__(self, board = None, liberties = None, n = 19, current_player = 1, black_captures = 0, white_captures = 0, game_ended = False):
         self.n = n
@@ -17,19 +14,21 @@ class GameState:
         self.black_captures = black_captures
         self.white_captures = white_captures # TODO take these into account
         self.game_ended = game_ended
-        if board == None:
-            self.board = np.zeros((n, n))
-            self.liberties = np.zeros((n, n))
+        if board is None: # NOTE numpy will take '== None' as an element-wise operation
+            self.board = np.zeros((self.n, self.n), dtype = np.int)
+            self.liberties = np.zeros((self.n, self.n), dtype = np.int)
         else:
             self.board = board
-            if liberties == None:
-                self.liberties = np.zeros((n, n))
+            if liberties is None:
+                self.liberties = np.zeros((n, n), dtype = np.int)
                 self.update_liberties()
             else:
                 self.liberties = liberties
 
-    def compute_num_of_liberties(self, x, y, stones, liberties = None):
-        if liberties is None:
+    def compute_num_of_liberties(self, x, y, stones = None, liberties = None):
+        if stones == None:
+            stones = set()
+        if liberties == None:
             liberties = set()
         if (x, y) in stones:
             return 0
@@ -57,7 +56,7 @@ class GameState:
         return len(liberties)
 
     def set_chain_liberties(self, x, y, lib, stones = None):
-        if stones is None:
+        if stones == None:
             stones = set()
         if (x, y) in stones:
             return
@@ -74,13 +73,13 @@ class GameState:
 
     def update_liberties(self):
         stones = set()
-        for i in range(self.n):
-            for j in range(self.n):
-                if self.board[i][j] == 0:
-                     self.liberties[i][j] = 0
-                elif (i, j) not in stones:
-                    lib = self.compute_num_of_liberties(i, j, stones)
-                    self.set_chain_liberties(i, j, lib)
+        for x in range(self.n):
+            for y in range(self.n):
+                if self.board[x][y] == 0:
+                     self.liberties[x][y] = 0
+                elif (x, y) not in stones:
+                    lib = self.compute_num_of_liberties(x, y)
+                    self.set_chain_liberties(x, y, lib, stones)
 
     def have_same_color(self, x1, y1, x2, y2):
         return self.board[x1][y1] == self.board[x2][y2]
@@ -150,6 +149,8 @@ class GameState:
             return True # TODO is this really necessary?
         else:
             x, y = move # TODO make this check more robust
+            print x, type(x)
+            print y, type(y)
         if not self.legal_move(x, y):
             # TODO this should really do this?
             # raise Exception('This is not a legal move.')
@@ -164,8 +165,8 @@ class GameState:
         return self.game_ended
 
     # TODO
-    def is_terminal_state(self):
-        pass
+    # def is_terminal_state(self):
+    #     pass
 
     def all_possible_moves(self):
         possible_moves = set()
@@ -186,33 +187,44 @@ class GameState:
             game_ended = self.game_ended)
         return state
 
+    def print_board(self):
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        print ' ',
+        for i in range(self.n):
+            print letters[i],
+        print ''
+        for i in range(self.n):
+            print letters[i],
+            for j in range(self.n):
+                player = self.board[i][j]
+                if player == 1:
+                    print 'x',
+                elif player == 0:
+                    print '.',
+                elif player == -1:
+                    print 'o',
+                else:
+                    raise Exception('not a valid number for stone', player)
+            print ''
 class Node:
-    def __init__(self, state = GameState(n = 19), origin_move = None):
+    def __init__(self, state = GameState(n = 19), origin_move = None, children = None):
         self.state = state
         self.origin_move = origin_move
         self.wins = 0
         self.draws = 0 # NOTE how to take this into account?
         self.visits = 0
         # TODO I need to compute both right?
-        self.children = [] # NOTE is there a better data structure?
+        # NOTE is there a better data structure?
+        self.children = [] if children == None else children
         self.untried_moves = self.all_possible_moves() # NOTE is really better to store it?
 
     def process_move(self, move):
         self.state.process_move(move)
+        self.origin_move = move
 
-    def copy(self):
-        node  = Node(state = self.state, origin_move = self.origin_move)
-        return node
-
-    def copy_like(self, move = None, set_origin_move = True):
-        node = Node(self.state.copy(), self.origin_move)
-        if move == None: # NOTE to increase performance
-            node.untried_moves = self.untried_moves.copy()
-        else:
-            node.untried_moves = set([move])
-        if set_origin_move:
-            node.origin_move = move
-        return node
+    # NOTE implement a copy (as a deep one) is very costly
+    def copy_like(self):
+        return Node(self.state.copy(), self.origin_move)
 
     def add_child(self, node):
         self.children.append(node)
@@ -228,27 +240,31 @@ class Node:
 
     def do_random_move(self):
         move = self.get_move()
-        self.process_move(move)
+        if self.process_move(move):
+            self.print_board()
+        else:
+            self.print_board()
+            raise Exception('not a valid move', move)
         self.origin_move = move
         self.untried_moves = self.all_possible_moves()
 
+    def print_board(self):
+        return self.state.print_board()
+
 class MCTSPlayer:
-    def __init__(self, size = 19, color = 1, max_iter = 10, reuse_subtree = True, tree_policy = 'uct'):
+    def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct'):
         # NOTE this player uses chinese rules
         # NOTE cannot play handicap games yet
         self.size = size
         self.color = color
         self.max_iter = max_iter
         self.reuse_subtree = reuse_subtree
-        self.root_node = Node(GameState(n = self.size))
+        self.root_node = Node(state = GameState(n = self.size))
         self.policies = {
                         'uct' : self.uct,
                         'policy_network' : self.policy_network
                         }
         self.tree_policy = tree_policy
-
-    def process_move(self, move):
-        self.state.process_opponent_move(move)
 
     def uct_select_child(self, node):
         selected_node = None
@@ -265,17 +281,17 @@ class MCTSPlayer:
 
         for i in range(self.max_iter):
             # Selection
+            debug('Selection')
             current = root_node
-            if root_node == None:
-                print 'empty root'
-            if current == None:
-                print 'empty current'
             while not current.game_ended() and len(current.untried_moves) == 0:
+                # print 'should not be here'
                 current = self.uct_select_child(current)
             # Expansion
+            debug('Expansion')
             if not current.game_ended() and len(current.untried_moves) > 0:
                 move = current.get_move()
-                node = current.copy_like(move)
+                print 'move', move
+                node = current.copy_like()
                 node.process_move(move)
                 current.add_child(node)
                 current = node
@@ -283,11 +299,16 @@ class MCTSPlayer:
                 # NOTE there is achance that the algorithm will always come back here?
                 pass
             # Simulation
+            debug('Simulation')
             node = current
-            current = current.copy()
+            current = current.copy_like()
+            count = 0
             while not current.game_ended():
+                count += 1
+                print 'count', count
                 current.do_random_move()
             # Backpropagation
+            debug('Backpropagation')
             while current != None:
                 current.update_statistics()
                 current = current.parent
