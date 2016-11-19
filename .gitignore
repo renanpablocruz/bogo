@@ -4,6 +4,5 @@
 papers/*
 env/*
 tutorial_files/*
-*~
 *.pyc
-
+*~
