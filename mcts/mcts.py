@@ -277,18 +277,17 @@ class GameState:
         return possible_moves
 
     def copy(self):
-        state = GameState(
-            board = np.copy(self.board),
-            prev_board = np.copy(self.prev_board),
-            liberties = np.copy(self.liberties),
-            n = self.n,
-            current_player = self.current_player,
-            black_captures = self.black_captures,
-            white_captures = self.white_captures,
-            game_ended = self.game_ended,
-            black_passed = self.black_passed,
-            white_passed = self.white_passed)
-        return state
+        return GameState(
+                board = np.copy(self.board),
+                prev_board = np.copy(self.prev_board),
+                liberties = np.copy(self.liberties),
+                n = self.n,
+                current_player = self.current_player,
+                black_captures = self.black_captures,
+                white_captures = self.white_captures,
+                game_ended = self.game_ended,
+                black_passed = self.black_passed,
+                white_passed = self.white_passed)
 
     def print_board(self):
         letters = 'abcdefghijklmnopqrstuvwxyz'
@@ -322,6 +321,21 @@ class GameState:
             return -1
         else:
             return 0
+
+    def do_random_move(self):
+        # move = self.get_move()
+        options = self.all_possible_moves()
+        if len(options) == 0:
+            move = (-1, -1)
+        else:
+            move = options[0]
+        debug('trying to play at ' + conv_int_to_letters(move))
+        valid_action = self.process_move(move)
+        self.print_board()
+        self.print_liberties()
+        if not valid_action:
+            raise Exception('not a valid move', conv_int_to_letters(move))
+        return move
 
 class Node:
     def __init__(self, state = None, origin_move = None, children = None, wins = 0, draws = 0, visits = 0, parent = None):
@@ -357,7 +371,7 @@ class Node:
             return (-1, -1) # pass move
         else:
             move = self.untried_moves.pop()
-            return move # TODO fix this. this sorts and gets the smallest
+            return move
 
     def game_ended(self):
         return self.state.game_ended
@@ -365,14 +379,23 @@ class Node:
     def all_possible_moves(self):
         return self.state.all_possible_moves()
 
+    # NOTE older version
+    # def do_random_move(self):
+    #     move = self.get_move()
+    #     debug('trying to play at ' + conv_int_to_letters(move))
+    #     valid_action = self.state.process_move(move)
+    #     self.print_board()
+    #     self.print_liberties()
+    #     if not valid_action:
+    #         raise Exception('not a valid move', conv_int_to_letters(move))
+    #     self.origin_move = move
+    #     self.children = []
+    #     self.wins = 0
+    #     self.draws = 0
+    #     self.visits = 0
+
     def do_random_move(self):
-        move = self.get_move()
-        debug('trying to play at ' + conv_int_to_letters(move))
-        valid_action = self.state.process_move(move)
-        self.print_board()
-        self.print_liberties()
-        if not valid_action:
-            raise Exception('not a valid move', conv_int_to_letters(move))
+        move = self.state.do_random_move()
         self.origin_move = move
         self.children = []
         self.wins = 0
@@ -432,16 +455,22 @@ class MCTSPlayer:
             debug('Iterarion ' + str(i) + ':')
             debug('#######################################')
             # Selection
+            debug('---------------------------------------')
             debug('Selection')
+            debug('---------------------------------------')
             current = root_node
             while not current.game_ended() and len(current.untried_moves) == 0:
                 current = self.uct_select_child(current)
             # Expansion
+            debug('---------------------------------------')
             debug('Expansion')
+            debug('---------------------------------------')
             if not current.game_ended() and len(current.untried_moves) > 0:
                 # move = current.get_move()
                 # print 'move', conv_int_to_letters(move)
                 node = current.copy_like()
+                print 'untried moves'
+                print node.untried_moves
                 node.do_random_move()
                 self.append_node(current, node) # current.add_child(node) + something
                 current = node
@@ -449,7 +478,9 @@ class MCTSPlayer:
                 # NOTE there is a chance that the algorithm will always come back here?
                 pass
             # Simulation
+            debug('---------------------------------------')
             debug('Simulation')
+            debug('---------------------------------------')
             debug('Board before simulation')
             current.print_board() # debug
             current.print_liberties()
@@ -458,9 +489,13 @@ class MCTSPlayer:
             while not node.game_ended():
                 num_steps += 1
                 print 'step', num_steps
+                print 'possible moves'
+                print node.state.all_possible_moves()
                 node.do_random_move()
             # Backpropagation
+            debug('---------------------------------------')
             debug('Backpropagation')
+            debug('---------------------------------------')
             winner = node.get_winner()
             while current != None:
                 current.update_statistics(winner)
