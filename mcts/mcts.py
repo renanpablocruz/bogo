@@ -552,3 +552,32 @@ class MCTSPlayer:
                 selected_node = nd
                 best_win_rate = win_rate
         return selected_node
+
+class HumanPlayer:
+    def __init__(self):
+        self.state = GameState(n = 19)
+
+    def gen_move(self): # TODO handle invalid moves!
+        is_legal_move = False
+        while not is_legal_move:
+            stdin = raw_input('Please enter a valid move \n')
+            x, y = conv_letter_to_int(stdin)
+            is_legal_move = self.state.legal_move(x, y)
+        # TODO process move in self.state
+        return (x, y)
+
+    def process_move(self, move):
+        self.state.process_move(move)
+
+class Game:
+    def __init__(self, player1, player2, n = 19):
+        self.players = {1 : player1, -1 : player2}
+        self.state = GameState(n = 19)
+
+    def play_match(self):
+        while not self.state.game_ended:
+            self.state.print_board()
+            move = self.players[self.state.current_player].gen_move()
+            self.state.process_move(move)
+            for i in self.players:
+                self.players[i].process_move(move)
