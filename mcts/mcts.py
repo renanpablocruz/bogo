@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+from random import shuffle
 from utils import *
 
 # TODO: incorporate class
@@ -95,6 +96,35 @@ class GameState:
     def inside_board(self, x, y):
         return x >= 0 and x < self.n and y >= 0 and y < self.n
 
+    # NOTE older version
+    # def legal_move(self, x, y):
+    #     # inside board limits
+    #     if not self.inside_board(x, y):
+    #         return False
+    #     # is an empty intersection
+    #     if self.board[x][y] != 0:
+    #         return False
+    #     # self-atari
+    #     if self.inside_board(x - 1, y) and self.have_same_color(x, y, x - 1, y) and self.liberties[x - 1][y] == 1:
+    #         print conv_int_to_letters((x, y)), 'is not a valid move'
+    #         return False
+    #     if self.inside_board(x + 1, y) and self.have_same_color(x, y, x + 1, y) and self.liberties[x + 1][y] == 1:
+    #         print conv_int_to_letters((x, y)), 'is not a valid move'
+    #         return False
+    #     if self.inside_board(x, y - 1) and self.have_same_color(x, y, x, y - 1) and self.liberties[x][y - 1] == 1:
+    #         print conv_int_to_letters((x, y)), 'is not a valid move'
+    #         return False
+    #     if self.inside_board(x, y + 1) and self.have_same_color(x, y, x, y + 1) and self.liberties[x][y + 1] == 1:
+    #         print conv_int_to_letters((x, y)), 'is not a valid move'
+    #         return False
+    #     # TODO ilegal ko recapture
+    #     # NOTE how to optimize?
+    #     temp = self.copy() # NOTE a Board class would make this easier
+    #     temp.process_move_with_no_verification((x, y))
+    #     if np.array_equal(self.prev_board, temp):
+    #         return False
+    #     return True
+
     def legal_move(self, x, y):
         # inside board limits
         if not self.inside_board(x, y):
@@ -103,18 +133,26 @@ class GameState:
         if self.board[x][y] != 0:
             return False
         # self-atari
-        if self.inside_board(x - 1, y) and self.have_same_color(x, y, x - 1, y) and self.liberties[x - 1][y] == 1:
-            return False
-        if self.inside_board(x + 1, y) and self.have_same_color(x, y, x + 1, y) and self.liberties[x + 1][y] == 1:
-            return False
-        if self.inside_board(x, y - 1) and self.have_same_color(x, y, x, y - 1) and self.liberties[x][y - 1] == 1:
-            return False
-        if self.inside_board(x, y + 1) and self.have_same_color(x, y, x, y + 1) and self.liberties[x][y + 1] == 1:
-            return False
-        # TODO ilegal ko recapture
-        # NOTE how to optimize?
+        # if self.inside_board(x - 1, y) and self.board[x - 1][y] == self.current_player and self.liberties[x - 1][y] == 1:
+        #     print conv_int_to_letters((x, y)), 'is not a valid move'
+        #     return False
+        # if self.inside_board(x + 1, y) and self.board[x + 1][y] == self.current_player and self.liberties[x + 1][y] == 1:
+        #     print conv_int_to_letters((x, y)), 'is not a valid move'
+        #     return False
+        # if self.inside_board(x, y - 1) and self.board[x][y - 1] == self.current_player and self.liberties[x][y - 1] == 1:
+        #     print conv_int_to_letters((x, y)), 'is not a valid move'
+        #     return False
+        # if self.inside_board(x, y + 1) and self.board[x][y + 1] == self.current_player and self.liberties[x][y + 1] == 1:
+        #     print conv_int_to_letters((x, y)), 'is not a valid move'
+        #     return False
+        # tempself.
+        # NOTE how to optimize? cfeating a Board class? what more?
         temp = self.copy() # NOTE a Board class would make this easier
         temp.process_move_with_no_verification((x, y))
+        # self-atari
+        if temp.liberties[x][y] == 0:
+            return False
+        # ilegal ko recapture
         if np.array_equal(self.prev_board, temp):
             return False
         return True
@@ -124,9 +162,9 @@ class GameState:
 
     def compute_capture(self, x, y):
         if self.board[x][y] == 1:
-            self.black_captures += 1
-        elif self.board[x][y] == -1:
             self.white_captures += 1
+        elif self.board[x][y] == -1:
+            self.black_captures += 1
         else:
             raise Exception('cannot capture an empty intersection, move', conv_int_to_letters((x, y)), self.board[x][y])
         self.board[x][y] = 0
@@ -152,13 +190,13 @@ class GameState:
         # remove stone
         self.compute_capture(x, y)
         # check neighboors (connected stones)
-        if self.inside_board(x - 1, y) and self.is_an_opponent_stone(x, y):
+        if self.inside_board(x - 1, y) and self.is_an_opponent_stone(x - 1, y):
             self.remove_captured_stones(x - 1, y)
-        if self.inside_board(x + 1, y) and self.is_an_opponent_stone(x, y):
+        if self.inside_board(x + 1, y) and self.is_an_opponent_stone(x + 1, y):
             self.remove_captured_stones(x + 1, y)
-        if self.inside_board(x, y - 1) and self.is_an_opponent_stone(x, y):
+        if self.inside_board(x, y - 1) and self.is_an_opponent_stone(x, y - 1):
             self.remove_captured_stones(x, y - 1)
-        if self.inside_board(x, y + 1) and self.is_an_opponent_stone(x, y):
+        if self.inside_board(x, y + 1) and self.is_an_opponent_stone(x, y + 1):
             self.remove_captured_stones(x, y + 1)
 
     def process_captures_from_last_move(self, x, y):
@@ -205,11 +243,10 @@ class GameState:
             self.prev_board = np.copy(self.board) # NOTE can I not repeat this code
             self.current_player = -self.current_player
             return True
-        elif move == 'resign':
-            return True # TODO is this really necessary?
+        # TODO resign option is really here?
         else:
             self.set_current_player_passed(False)
-            x, y = move # TODO make this check more robust
+            x, y = move # NOTE do I need to make this check more robust
         if not self.legal_move(x, y):
             # TODO this should really do this?
             raise Exception('This is not a legal move.', move)
@@ -231,11 +268,12 @@ class GameState:
     #     pass
 
     def all_possible_moves(self):
-        possible_moves = set()
+        possible_moves = []
         for x in range(self.n):
             for y in range(self.n):
                 if self.legal_move(x, y):
-                    possible_moves.add((x, y))
+                    possible_moves.append((x, y))
+        shuffle(possible_moves)
         return possible_moves
 
     def copy(self):
