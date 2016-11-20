@@ -3,6 +3,8 @@ import numpy as np
 from random import shuffle
 from utils import *
 
+# NOTE using max_game_length. can I avoid this?
+
 # TODO: incorporate class
 # class Board:
 #     def __init__(self, size = 19):
@@ -10,7 +12,7 @@ from utils import *
 
 # classes
 class GameState:
-    def __init__(self, board = None, prev_board = None, liberties = None, n = 19, current_player = 1, black_captures = 0, white_captures = 0, game_ended = False, black_passed = False, white_passed = False):
+    def __init__(self, board = None, prev_board = None, liberties = None, n = 19, current_player = 1, black_captures = 0, white_captures = 0, game_ended = False, black_passed = False, white_passed = False, game_length = 0):
         self.n = n
         self.current_player = current_player # 1 or -1
         self.black_captures = black_captures
@@ -18,6 +20,7 @@ class GameState:
         self.black_passed = False
         self.white_passed = False
         self.game_ended = game_ended
+        self.game_length = game_length
         if board is None: # NOTE numpy will take '== None' as an element-wise operation
             self.board = np.zeros((self.n, self.n), dtype = np.int)
             self.prev_board = np.zeros((self.n, self.n), dtype = np.int) # NOTE cannot have board is None and prev_board not None
@@ -238,6 +241,7 @@ class GameState:
 
 
     def process_move(self, move):
+        self.game_length += 1
         if move == (-1, -1): # pass move
             self.set_current_player_passed(True)
             self.prev_board = np.copy(self.board) # NOTE can I not repeat this code
@@ -263,14 +267,24 @@ class GameState:
         # TODO how to do it? probably when get_move returns 'pass' twice!
         return True
 
-    # TODO
-    # def is_terminal_state(self):
-    #     pass
+    # def inside_own_territory(self, x, y, stones = None):
+    #     if stones == None:
+    #         stones = set()
+    #     if (x, y) in stones:
+    #         return dsds
+    #     stones.add((x, y))
+    #     if x - 1 >= 0 and (x - 1, y) not in stones:
+    #         if self.board
 
     def all_possible_moves(self):
         possible_moves = []
         for x in range(self.n):
             for y in range(self.n):
+                # temp = self.copy()
+                # temp.process_move_with_no_verification((x, y))
+                # lib = temp.
+                # inside_own_territory =
+                # if self.legal_move(x, y) and not inside_own_territory:
                 if self.legal_move(x, y):
                     possible_moves.append((x, y))
         shuffle(possible_moves)
@@ -287,7 +301,8 @@ class GameState:
                 white_captures = self.white_captures,
                 game_ended = self.game_ended,
                 black_passed = self.black_passed,
-                white_passed = self.white_passed)
+                white_passed = self.white_passed,
+                game_length = self.game_length)
 
     def print_board(self):
         letters = 'abcdefghijklmnopqrstuvwxyz'
@@ -418,8 +433,11 @@ class Node:
     def get_winner(self):
         return self.state.get_winner()
 
+    def get_game_length(self):
+        return self.state.game_length
+
 class MCTSPlayer:
-    def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct', root = None):
+    def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct', root = None, max_game_length = None):
         # NOTE this player uses chinese rules
         # NOTE cannot play handicap games yet
         self.size = size
@@ -432,6 +450,8 @@ class MCTSPlayer:
                         'uct' : self.uct,
                         'policy_network' : self.policy_network
                         }
+        # self.max_game_length = self.size*self.size if max_game_length == None else max_game_length
+        self.max_game_length = 10 if max_game_length == None else max_game_length
 
     def append_node(self, parent, child):
         parent.add_child(child)
@@ -486,7 +506,7 @@ class MCTSPlayer:
             current.print_liberties()
             node = current.copy_like()
             num_steps = 0
-            while not node.game_ended():
+            while not node.game_ended() and node.get_game_length() < self.max_game_length:
                 num_steps += 1
                 print 'step', num_steps
                 print 'possible moves'
