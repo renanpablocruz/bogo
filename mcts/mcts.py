@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import math
 from random import shuffle
 from utils import *
 
@@ -436,8 +437,14 @@ class Node:
     def get_game_length(self):
         return self.state.game_length
 
+    def get_win_rate(self):
+        return self.wins / self.visits
+
+    def ucb(self, c):
+        return self.wins / self.visits + c * math.sqrt(2 * math.log(self.parent.visits) / self.visits)
+
 class MCTSPlayer:
-    def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct', root = None, max_game_length = None):
+    def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct', root = None, max_game_length = None, exploration_constant = 0.5):
         # NOTE this player uses chinese rules
         # NOTE cannot play handicap games yet
         self.size = size
@@ -452,19 +459,21 @@ class MCTSPlayer:
                         }
         # self.max_game_length = self.size*self.size if max_game_length == None else max_game_length
         self.max_game_length = 10 if max_game_length == None else max_game_length
+        self.exploration_constant = exploration_constant
 
     def append_node(self, parent, child):
         parent.add_child(child)
         child.add_parent(parent)
 
     def uct_select_child(self, node): # TODO this is wrong. put uct real function
+        shuffle(self.root_node.children) # NOTE here it seems necesssary
         selected_node = None
-        best_win_rate = -1
+        best_ucb = -1
         for nd in node.children:
-            win_rate = nd.wins / nd.visits # to make it float division
-            if win_rate > best_win_rate:
+            ucb = nd.ucb(self.exploration_constant)
+            if ucb > best_ucb:
                 selected_node = nd
-                best_win_rate = win_rate
+                best_ucb = ucb
         return selected_node
 
     def uct(self):
@@ -532,6 +541,7 @@ class MCTSPlayer:
         return heuristic()
 
     def get_best_node(self):
+        shuffle(self.root_node.children) # NOTE to avoid give preference to left most. is it necessary?
         selected_node = None
         best_win_rate = -1
         for nd in self.root_node.children:
