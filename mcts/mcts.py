@@ -1,6 +1,6 @@
 from __future__ import division
 import numpy as np
-from utils import debug, conv_int_to_letters
+from utils import *
 
 # TODO: incorporate class
 # class Board:
@@ -28,7 +28,7 @@ class GameState:
             else:
                 self.prev_board = prev_board
             if liberties is None:
-                self.liberties = np.zeros((n, n), dtype = np.int)
+                self.liberties = np.zeros((self.n, self.n), dtype = np.int)
                 self.update_liberties()
             else:
                 self.liberties = liberties
@@ -164,12 +164,16 @@ class GameState:
     def process_captures_from_last_move(self, x, y):
         # in board, opponent stone and only one liberty
         if self.inside_board(x - 1, y) and self.is_an_opponent_stone(x - 1, y) and self.liberties[x - 1][y] == 1:
+            debug('player ' + str(self.current_player) + ' capture after playing at ' + conv_int_to_letters((x, y)))
             self.remove_captured_stones(x - 1, y)
         if self.inside_board(x + 1, y) and self.is_an_opponent_stone(x + 1, y) and self.liberties[x + 1][y] == 1:
+            debug('capture after playing at ' + conv_int_to_letters((x, y)))
             self.remove_captured_stones(x + 1, y)
         if self.inside_board(x, y - 1) and self.is_an_opponent_stone(x, y - 1) and self.liberties[x][y - 1] == 1:
+            debug('capture after playing at ' + conv_int_to_letters((x, y)))
             self.remove_captured_stones(x, y - 1)
         if self.inside_board(x, y + 1) and self.is_an_opponent_stone(x, y + 1) and self.liberties[x][y + 1] == 1:
+            debug('capture after playing at ' + conv_int_to_letters((x, y)))
             self.remove_captured_stones(x, y + 1)
 
     def set_current_player_passed(self, passed):
@@ -211,10 +215,12 @@ class GameState:
             raise Exception('This is not a legal move.', move)
             return False
         self.prev_board = np.copy(self.board)
-        self.current_player = -self.current_player
+        if (x, y) == (18, 18):
+            print 'ss is been played'
         self.board[x][y] = self.current_player
         self.process_captures_from_last_move(x, y)
         self.update_liberties()
+        self.current_player = -self.current_player # NOTE it has to be after the board update
         self.untried_moves = self.all_possible_moves()
         # NOTE check if the game ended?
         # TODO how to do it? probably when get_move returns 'pass' twice!
@@ -236,7 +242,7 @@ class GameState:
         state = GameState(
             board = np.copy(self.board),
             prev_board = np.copy(self.prev_board),
-            liberties = self.liberties,
+            liberties = np.copy(self.liberties),
             n = self.n,
             current_player = self.current_player,
             black_captures = self.black_captures,
@@ -255,15 +261,19 @@ class GameState:
         for i in range(self.n):
             print letters[i],
             for j in range(self.n):
-                player = self.board[i][j]
-                if player == 1:
-                    print 'x',
-                elif player == 0:
-                    print '.',
-                elif player == -1:
-                    print 'o',
-                else:
-                    raise Exception('not a valid number for stone', player)
+                print player_num_to_symbol(self.board[i][j]),
+            print ''
+
+    def print_liberties(self):
+        letters = 'abcdefghijklmnopqrstuvwxyz'
+        print ' ',
+        for i in range(self.n):
+            print letters[i],
+        print ''
+        for i in range(self.n):
+            print letters[i],
+            for j in range(self.n):
+                print str(self.liberties[i][j]),
             print ''
 
     def get_winner(self): # NOTE only makes sense to call it when game_ended == True
@@ -276,8 +286,8 @@ class GameState:
             return 0
 
 class Node:
-    def __init__(self, state = GameState(n = 19), origin_move = None, children = None, wins = 0, draws = 0, visits = 0):
-        self.state = state
+    def __init__(self, state = None, origin_move = None, children = None, wins = 0, draws = 0, visits = 0, parent = None):
+        self.state = GameState() if state == None else state
         self.origin_move = origin_move
         self.wins = wins
         self.draws = draws # NOTE how to take this into account?
@@ -286,6 +296,7 @@ class Node:
         # NOTE is there a better data structure?
         self.children = [] if children == None else children
         self.untried_moves = self.all_possible_moves() # NOTE is really better to store it?
+        self.parent = parent
 
     # NOTE implement a copy (as a deep one) is very costly
     def copy_like(self):
@@ -294,10 +305,14 @@ class Node:
                     children = None,
                     wins = 0,
                     draws = 0,
-                    visits = 0)
+                    visits = 0,
+                    parent = self.parent)
 
     def add_child(self, node):
         self.children.append(node)
+
+    def add_parent(self, node):
+        self.parent = node
 
     def get_move(self):
         if len(self.untried_moves) == 0:
@@ -315,11 +330,10 @@ class Node:
     def do_random_move(self):
         move = self.get_move()
         debug('trying to play at ' + conv_int_to_letters(move))
-        if self.state.process_move(move):
-            debug('test')
-            self.print_board()
-        else:
-            self.print_board()
+        valid_action = self.state.process_move(move)
+        self.print_board()
+        self.print_liberties()
+        if not valid_action:
             raise Exception('not a valid move', conv_int_to_letters(move))
         self.origin_move = move
         self.children = []
@@ -330,14 +344,18 @@ class Node:
     def print_board(self):
         return self.state.print_board()
 
+    def print_liberties(self):
+        return self.state.print_liberties()
+
     def update_statistics(self, winner):
-        if winner == self.current_player:
+        if winner == self.state.current_player:
             self.wins += 1
         elif winner == 0:
             self.draws += 1
-
-    def count_visit(self):
         self.visits += 1
+
+    def get_winner(self):
+        return self.state.get_winner()
 
 class MCTSPlayer:
     def __init__(self, size = 19, color = 1, max_iter = 1, reuse_subtree = True, tree_policy = 'uct', root = None):
@@ -354,7 +372,11 @@ class MCTSPlayer:
                         'policy_network' : self.policy_network
                         }
 
-    def uct_select_child(self, node):
+    def append_node(self, parent, child):
+        parent.add_child(child)
+        child.add_parent(parent)
+
+    def uct_select_child(self, node): # TODO this is wrong. put uct real function
         selected_node = None
         best_win_rate = -1
         for nd in node.children:
@@ -383,20 +405,21 @@ class MCTSPlayer:
                 # print 'move', conv_int_to_letters(move)
                 node = current.copy_like()
                 node.do_random_move()
-                current.add_child(node)
+                self.append_node(current, node) # current.add_child(node) + something
                 current = node
             else:
                 # NOTE there is a chance that the algorithm will always come back here?
                 pass
             # Simulation
-            current.print_board() # debug
             debug('Simulation')
+            debug('Board before simulation')
+            current.print_board() # debug
+            current.print_liberties()
             node = current.copy_like()
             num_steps = 0
             while not node.game_ended():
                 num_steps += 1
                 print 'step', num_steps
-                node.count_visit()
                 node.do_random_move()
             # Backpropagation
             debug('Backpropagation')
@@ -405,7 +428,8 @@ class MCTSPlayer:
                 current.update_statistics(winner)
                 current = current.parent
 
-        return self.get_best_node().origin_move
+        selected_node = self.get_best_node()
+        return selected_node.origin_move
 
     def policy_network(self):
         pass
@@ -413,3 +437,15 @@ class MCTSPlayer:
     def gen_move(self):
         heuristic = self.policies[self.tree_policy]
         return heuristic()
+
+    def get_best_node(self):
+        selected_node = None
+        best_win_rate = -1
+        for nd in self.root_node.children:
+            if nd.visits == 0:
+                break
+            win_rate = nd.wins / nd.visits # to make it float division
+            if win_rate > best_win_rate:
+                selected_node = nd
+                best_win_rate = win_rate
+        return selected_node
