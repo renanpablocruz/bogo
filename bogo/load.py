@@ -31,7 +31,7 @@ SIZE = 19
 #     Y = Y.astype(np.float32)
 #     return X, Y
 
-def load(fname, all_features, targets, state_counter, max_number_states):
+def load(fname, all_features, targets, filter_input, max_number_states, state_counter):
     with open(fname, 'r') as f:
         header = f.readline()
         for line in f:
@@ -40,12 +40,15 @@ def load(fname, all_features, targets, state_counter, max_number_states):
             target = l[-1][0]
             # print 'target', target
             # exit(0)
-            if state_counter[target] < max_number_states:
+            if not filter_input:
+                all_features.append(features)
+                targets.append(target)
+            elif state_counter[target] < max_number_states:
                 all_features.append(features)
                 targets.append(target)
                 state_counter[target] += 1
 
-def load_dataset(folder_path, filter_input = True, min_num_states = 5, max_number_states = 10):
+def load_dataset(folder_path, filter_input = False, max_number_states = 10):
     if filter_input:
         state_counter = np.zeros(SIZE * SIZE)
     else:
@@ -54,25 +57,19 @@ def load_dataset(folder_path, filter_input = True, min_num_states = 5, max_numbe
     all_features = []
     targets = []
 
-    counter = 0
-    for fname in sorted(os.listdir(folder_path)):
-        if fname.endswith('.data') and counter < 30:
-            load(folder_path + fname, all_features, targets, state_counter, max_number_states)
-            counter += 1
+    # for fname in sorted(os.listdir(folder_path)):
+    for fname in os.listdir(folder_path):
+        if fname.endswith('.data'):
+            load(folder_path + fname, all_features, targets, filter_input, max_number_states, state_counter)
 
     size = int(math.sqrt(len(all_features[0][0])))
     num_features = len(all_features[0])
-
-    # for i in range(len(state_counter)):
-    #     if state_counter[i] < min_num_states:
-    #         print i,
 
     X = np.vstack(all_features)
     X = X.reshape(-1, num_features, size, size)
     Y = np.array(targets)
     X, Y = shuffle(X, Y) # could include random_state=a_number parameter for reproducibility
     X = X.astype(np.float32)
-    # Y = Y.astype(np.float32)
     Y = Y.astype(np.int32)
     # print 'Y'
     # print Y

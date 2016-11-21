@@ -6,3 +6,4 @@ env/*
 tutorial_files/*
 *.pyc
 *~
+converted_database/*
